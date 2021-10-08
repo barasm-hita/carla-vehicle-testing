@@ -9,7 +9,7 @@ Some may go on with autonomous features and algorithms, or may go around develop
 First go to CARLA [official repo](https://github.com/carla-simulator/carla "CARLA") and check hardware requirements to meet yours.
 
 Then, you have to ready up the prerequisite as below:
-- CARLA Simulation Server v0.9.12 (Get it [here](http://Before starting to use this project, you have to ready up the prerequisite as blow: "CARLA Release 0.9.12"))
+- CARLA Simulation Server v0.9.12 (Get it [here](https://github.com/carla-simulator/carla/releases/tag/0.9.12 "CARLA Release 0.9.12"))
 - Python v3.7
 - Installation of pip packages from the [requirements.txt](https://github.com/barasm-hita/carla-vehicle-testing/blob/main/requirements.txt "requirements.txt")
 
