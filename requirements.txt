@@ -3,9 +3,17 @@ networkx
 numpy; python_version < '3.0'
 numpy==1.18.4; python_version >= '3.0'
 distro
-Shapely==1.6.4.post2
+Shapely
 future
 pygame
 matplotlib
 open3d
 Pillow
+py-trees==0.8.3
+psutil
+xmlschema==1.0.18
+ephem
+tabulate
+opencv-python==4.2.0.32
+numpymatplotlibsix
+simple-watchdog-timer
