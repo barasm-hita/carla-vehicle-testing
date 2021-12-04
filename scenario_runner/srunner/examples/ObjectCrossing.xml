@@ -26,17 +26,7 @@
     </scenario>
     <scenario name="StationaryObjectCrossing_5" type="StationaryObjectCrossing" town="Town04">
         <ego_vehicle x="156.27" y="18.7" z="10.31" yaw="180" model="vehicle.tesla.model3" />
-        <weather
-cloudiness="0"
-precipitation="500"
-precipitation_deposits="0"
-wind_intensity="0"
-sun_azimuth_angle="180"
-sun_altitude_angle="50"
-fog_density="0"
-fog_distance="0"
-wetness="0"
-/>
+        <weather cloudiness="0" precipitation="500" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="180" sun_altitude_angle="50" fog_density="0" fog_distance="0" wetness="0" />
     </scenario>
     <scenario name="DynamicObjectCrossing_5" type="DynamicObjectCrossing" town="Town04">
         <ego_vehicle x="151.8" y="17.7" z="10.31" yaw="180" model="vehicle.tesla.model3" />

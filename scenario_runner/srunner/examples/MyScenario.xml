@@ -2,22 +2,22 @@
 <scenarios>
     <scenario name="bahrain_international_circuit" type="FreeRide">
         <ego_vehicle x="600" y="-220" z="0.5" yaw="250" model="vehicle.lincoln.mkz_2020" />
-        <weather cloudiness="0" precipitation="0" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="0" sun_altitude_angle="75" />
+        <weather cloudiness="0" precipitation="500" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="180" sun_altitude_angle="50" fog_density="0" fog_distance="0" wetness="0" />
     </scenario>
     <scenario name="indianapolis_motor_speedway" type="FreeRide">
         <ego_vehicle x="450" y="2" z="0.5" yaw="0" model="vehicle.lincoln.mkz_2020" />
-        <weather cloudiness="0" precipitation="0" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="0" sun_altitude_angle="75" />
+        <weather cloudiness="0" precipitation="500" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="180" sun_altitude_angle="50" fog_density="0" fog_distance="0" wetness="0" />
     </scenario>
     <scenario name="motorsport_arena_oschersleben" type="FreeRide">
         <ego_vehicle x="900" y="-17" z="0.5" yaw="180" model="vehicle.lincoln.mkz_2020" />
-        <weather cloudiness="0" precipitation="0" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="0" sun_altitude_angle="75" />
+        <weather cloudiness="0" precipitation="500" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="180" sun_altitude_angle="50" fog_density="0" fog_distance="0" wetness="0" />
     </scenario>
     <scenario name="shanghai_international_circuit" type="FreeRide">
         <ego_vehicle x="0" y="-200" z="0.5" yaw="270" model="vehicle.lincoln.mkz_2020" />
-        <weather cloudiness="0" precipitation="0" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="0" sun_altitude_angle="75" />
+        <weather cloudiness="0" precipitation="500" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="180" sun_altitude_angle="50" fog_density="0" fog_distance="0" wetness="0" />
     </scenario>
     <scenario name="suzuka_circuit" type="FreeRide">
         <ego_vehicle x="160" y="-1200" z="0.5" yaw="260" model="vehicle.lincoln.mkz_2020" />
-        <weather cloudiness="0" precipitation="0" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="0" sun_altitude_angle="75" />
+        <weather cloudiness="0" precipitation="500" precipitation_deposits="0" wind_intensity="0" sun_azimuth_angle="180" sun_altitude_angle="50" fog_density="0" fog_distance="0" wetness="0" />
     </scenario>
 </scenarios>
