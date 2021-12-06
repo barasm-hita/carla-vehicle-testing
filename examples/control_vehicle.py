@@ -767,7 +767,7 @@ def main():
         '--filter',
         metavar='PATTERN',
         default='vehicle.*',
-        help='Actor filter (default: "vehicle.*")')
+        help='Filter ego vehicle model (default: "vehicle.*")')
     argparser.add_argument(
         '-l', '--loop',
         action='store_true',
@@ -826,7 +826,7 @@ def main():
         '--filterv',
         metavar='PATTERN',
         default='vehicle.*',
-        help='Filter vehicle model (default: "vehicle.*")')
+        help='Filter traffic vehicles model (default: "vehicle.*")')
     argparser.add_argument(
         '--generationv',
         metavar='G',

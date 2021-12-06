@@ -11,24 +11,74 @@ function_inputs = [4, -2, 3.5, 5, -11, -4.7]
 desired_output = 44
 
 
+def choose_weather(index):
+    switcher = {
+        1: "ClearNight",
+        2: "ClearNoon",
+        3: "ClearSunset",
+        4: "CloudyNight",
+        5: "CloudyNoon",
+        6: "CloudySunset",
+        7: "HardRainNight",
+        8: "HardRainNoon",
+        9: "HardRainSunset",
+        10: "MidRainSunset",
+        11: "MidRainyNight",
+        12: "MidRainyNoon",
+        13: "SoftRainNight",
+        14: "SoftRainNoon",
+        15: "SoftRainSunset",
+        16: "WetCloudyNight",
+        17: "WetCloudyNoon",
+        18: "WetCloudySunset",
+        19: "WetNight",
+        20: "WetNoon",
+        21: "WetSunset"
+    }
+    return switcher.get(index, "Default")
+
+
 def fitness_func(solution, solution_idx):
     status = 1
     while(status != 0):
-        print('started simulation')
+        print("started simulation")
         # TODO: write parameters to an xml file as scenario
-        _ = Popen(
-            [
-                'python', 'scenario_runner.py', '--scenario',
-                'bahrain_international_circuit'
-            ], cwd='scenario_runner'
-        )
+        # _ = Popen(
+        #     [
+        #         "python",
+        #         "scenario_runner.py",
+        #         "--scenario",
+        #         "bahrain_international_circuit"
+        #     ], cwd="scenario_runner"
+        # )
+        # p2 = Popen(
+        #     [
+        #         "python",
+        #         "manual_control.py",
+        #         "-a"
+        #     ], cwd="scenario_runner"
+        # )
         p2 = Popen(
             [
-                'python', 'manual_control.py', '-a'
-            ], cwd='scenario_runner'
+                "python",
+                "control_vehicle.py",
+                "--sync",
+                "--filter",
+                "vehicle.lincoln.mkz_2020",
+                "--speed",
+                "50",  # TODO: replace with GA solution
+                "--behavior",
+                "custom",
+                "--xodr-path",
+                "../maps/bahrain_international_circuit.xodr",
+                "--number-of-vehicles",
+                "30",  # TODO: replace with GA solution
+                "--weather",
+                choose_weather(0)  # TODO: replace with GA solution
+            ], cwd="examples"
         )
         status = p2.wait()
-        print('finished simulation with status code ' + status)
+        print("finished simulation with status code " + str(status))
     output = 0  # TODO: run carla and get collisions
     fitness = 1.0 * output  # TODO: calculate fitness based on the output
     return fitness
