@@ -1,37 +1,43 @@
 import pygad
-import numpy
 import random
 from subprocess import Popen
 
-speeds = random.sample(range(30, 121), 20)
-friction = random.sample(range(0, 21), 20)
-traffic = random.sample(range(5, 51), 20)
+gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 5},
+              {'low': 0, 'high': 51}, {'low': 0, 'high': 22}]
 
-function_inputs = [4, -2, 3.5, 5, -11, -4.7]
-desired_output = 44
+
+def choose_map(index):
+    switcher = {
+        0: "bahrain_international_circuit",
+        1: "indianapolis_motor_speedway",
+        2: "motorsport_arena_oschersleben",
+        3: "shanghai_international_circuit",
+        4: "suzuka_circuit"
+    }
+    return switcher.get(index, "bahrain_international_circuit")
 
 
 def choose_weather(index):
     switcher = {
-        1: "ClearNight",
+        1: "ClearNight --car-lights-on",
         2: "ClearNoon",
         3: "ClearSunset",
-        4: "CloudyNight",
+        4: "CloudyNight --car-lights-on",
         5: "CloudyNoon",
         6: "CloudySunset",
-        7: "HardRainNight",
+        7: "HardRainNight --car-lights-on",
         8: "HardRainNoon",
         9: "HardRainSunset",
         10: "MidRainSunset",
-        11: "MidRainyNight",
+        11: "MidRainyNight --car-lights-on",
         12: "MidRainyNoon",
-        13: "SoftRainNight",
+        13: "SoftRainNight --car-lights-on",
         14: "SoftRainNoon",
         15: "SoftRainSunset",
-        16: "WetCloudyNight",
+        16: "WetCloudyNight --car-lights-on",
         17: "WetCloudyNoon",
         18: "WetCloudySunset",
-        19: "WetNight",
+        19: "WetNight --car-lights-on",
         20: "WetNoon",
         21: "WetSunset"
     }
@@ -42,7 +48,6 @@ def fitness_func(solution, solution_idx):
     status = 1
     while(status != 0):
         print("started simulation")
-        # TODO: write parameters to an xml file as scenario
         # _ = Popen(
         #     [
         #         "python",
@@ -66,34 +71,36 @@ def fitness_func(solution, solution_idx):
                 "--filter",
                 "vehicle.lincoln.mkz_2020",
                 "--speed",
-                "50",  # TODO: replace with GA solution
+                str(solution[0]),
                 "--behavior",
                 "custom",
                 "--xodr-path",
-                "../maps/bahrain_international_circuit.xodr",
+                "../maps/{chosen_map}.xodr".format(
+                    chosen_map=choose_map(solution[1])),
                 "--number-of-vehicles",
-                "30",  # TODO: replace with GA solution
+                str(solution[2]),
                 "--weather",
-                choose_weather(0)  # TODO: replace with GA solution
+                choose_weather(solution[3])
             ], cwd="examples"
         )
-        status = p2.wait()
+        status = p2.wait(300)  # timeout after 300 seconds
         print("finished simulation with status code " + str(status))
-    output = 0  # TODO: run carla and get collisions
-    fitness = 1.0 * output  # TODO: calculate fitness based on the output
+    # TODO: write parameters to an xml file as scenario
+    fitness = random.randint(1, 10)  # TODO: run carla and get score
     return fitness
 
 
 ga_instance = pygad.GA(
-    num_generations=100,
+    num_generations=10,
     num_parents_mating=4,
     fitness_func=fitness_func,
     sol_per_pop=8,
-    num_genes=6,
+    num_genes=4,
     init_range_low=-2,
     init_range_high=5,
-    gene_type=float,
-    mutation_num_genes=1
+    gene_type=int,
+    mutation_num_genes=1,
+    gene_space=gene_space
 )
 
 ga_instance.run()
@@ -103,7 +110,3 @@ solution, solution_fitness, solution_idx = ga_instance.best_solution()
 print("Parameters of the best solution : {solution}".format(solution=solution))
 print("Fitness value of the best solution = {solution_fitness}".format(
     solution_fitness=solution_fitness))
-
-prediction = numpy.sum(numpy.array(function_inputs)*solution)
-print("Predicted output based on the best solution : {prediction}".format(
-    prediction=prediction))
