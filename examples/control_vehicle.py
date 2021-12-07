@@ -121,14 +121,15 @@ class World(object):
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.modify_vehicle_physics(self.player)
         while self.player is None:
-            if not self.map.get_spawn_points():
-                print('There are no spawn points available in your map/town.')
-                print('Please add some Vehicle Spawn Point to your UE4 scene.')
-                sys.exit(1)
-            spawn_points = self.map.get_spawn_points()
             # Get the spawn point from input arguments
-            spawn_point = spawn_points[args.start]
-            self.player = self.world.try_spawn_actor(blueprint, spawn_point)
+            loc = carla.Location(
+                float(args.start.split(',')[0]),  # x
+                float(args.start.split(',')[1]),  # y
+                float(args.start.split(',')[2])  # z
+            )
+            rot = carla.Rotation(yaw=float(args.start.split(',')[3]))
+            self.player = self.world.try_spawn_actor(
+                blueprint, carla.Transform(loc, rot))
             self.modify_vehicle_physics(self.player)
 
         if self._args.sync:
@@ -732,9 +733,12 @@ def game_loop(args):
                 world.player, behavior=args.behavior, speed=args.speed)
 
         # Set the agent destination
-        spawn_points = world.map.get_spawn_points()
-        destination = spawn_points[2].location
-        agent.set_destination(destination)
+        loc = carla.Location(
+            float(args.end.split(',')[0]),  # x
+            float(args.end.split(',')[1]),  # y
+            float(args.end.split(',')[2])  # z
+        )
+        agent.set_destination(loc)
 
         clock = pygame.time.Clock()
 
@@ -750,14 +754,7 @@ def game_loop(args):
             pygame.display.flip()
 
             if agent.done():
-                if args.loop:
-                    agent.set_destination(random.choice(spawn_points).location)
-                    world.hud.notification(
-                        "The target has been reached, searching for another target", seconds=4.0)
-                    print("The target has been reached, searching for another target")
-                else:
-                    print("The target has been reached, stopping the simulation")
-                    break
+                break
 
             control = agent.run_step()
             control.manual_gear_shift = False
@@ -818,11 +815,6 @@ def main():
         default='vehicle.*',
         help='Filter ego vehicle model (default: "vehicle.*")')
     argparser.add_argument(
-        '-l', '--loop',
-        action='store_true',
-        dest='loop',
-        help='Sets a new random destination upon reaching the previous one (default: False)')
-    argparser.add_argument(
         "-a", "--agent", type=str,
         choices=["Behavior", "Basic"],
         help="select which agent to run",
@@ -853,7 +845,7 @@ def main():
         metavar='OSM_FILE_PATH',
         help='load a new map with a minimum physical road representation of the provided OpenStreetMaps')
     argparser.add_argument(
-        '--list',
+        '-l', '--list',
         action='store_true',
         help='list available options')
     argparser.add_argument(
@@ -899,9 +891,14 @@ def main():
         help='Speed of vehicle in custom mode (default: 30)')
     argparser.add_argument(
         '--start',
-        default=0,
-        type=int,
-        help='Vehicle start point index from spawn points list (default: 0)')
+        required=True,
+        type=str,
+        help='simulation starting point in form of "x,y,z,yaw"')
+    argparser.add_argument(
+        '--end',
+        required=True,
+        type=str,
+        help='simulation stopping point in form of "x,y,z"')
 
     args = argparser.parse_args()
 
@@ -930,10 +927,10 @@ def main():
                     print('file could not be readed.')
                     sys.exit()
             print('load opendrive map %r.' % os.path.basename(args.xodr_path))
-            vertex_distance = 2.0  # in meters
+            vertex_distance = 2.0   # in meters
             max_road_length = 500.0  # in meters
-            wall_height = 0.0      # in meters
-            extra_width = 1.5      # in meters
+            wall_height = 1.0       # in meters
+            extra_width = 1.5       # in meters
             world = client.generate_opendrive_world(
                 data, carla.OpendriveGenerationParameters(
                     vertex_distance=vertex_distance,
@@ -955,10 +952,10 @@ def main():
             print('Converting OSM data to opendrive')
             xodr_data = carla.Osm2Odr.convert(data)
             print('load opendrive map.')
-            vertex_distance = 2.0  # in meters
+            vertex_distance = 2.0   # in meters
             max_road_length = 500.0  # in meters
-            wall_height = 0.0      # in meters
-            extra_width = 0.6      # in meters
+            wall_height = 0.0       # in meters
+            extra_width = 0.6       # in meters
             world = client.generate_opendrive_world(
                 xodr_data, carla.OpendriveGenerationParameters(
                     vertex_distance=vertex_distance,

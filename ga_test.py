@@ -1,10 +1,13 @@
+import os
 import pygad
 import random
-from subprocess import Popen
+from subprocess import Popen, TimeoutExpired
+import signal
 
-gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 5},
+gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 1},
               {'low': 0, 'high': 51}, {'low': 0, 'high': 22}]
 initial_population = None
+population_num = 0
 
 
 def choose_map(index):
@@ -18,31 +21,60 @@ def choose_map(index):
     return switcher.get(index, "bahrain_international_circuit")
 
 
+def chosen_map_start_point(index):
+    switcher = {
+        0: "669.7,-92.7,3,242",
+        1: "0,0,3,0",
+        2: "0,0,3,0",
+        3: "0,0,3,0",
+        4: "0,0,3,0"
+    }
+    return switcher.get(index, "669.7,-92.7,3,242")
+
+
+def chosen_map_end_point(index):
+    switcher = {
+        0: "1044.9,-1741.3,3",
+        1: "0,0,3",
+        2: "0,0,3",
+        3: "0,0,3",
+        4: "0,0,3"
+    }
+    return switcher.get(index, "670,-92,3")
+
+
 def choose_weather(index):
     switcher = {
-        1: "ClearNight --car-lights-on",
+        1: "ClearNight",
         2: "ClearNoon",
         3: "ClearSunset",
-        4: "CloudyNight --car-lights-on",
+        4: "CloudyNight",
         5: "CloudyNoon",
         6: "CloudySunset",
-        7: "HardRainNight --car-lights-on",
+        7: "HardRainNight",
         8: "HardRainNoon",
         9: "HardRainSunset",
         10: "MidRainSunset",
-        11: "MidRainyNight --car-lights-on",
+        11: "MidRainyNight",
         12: "MidRainyNoon",
-        13: "SoftRainNight --car-lights-on",
+        13: "SoftRainNight",
         14: "SoftRainNoon",
         15: "SoftRainSunset",
-        16: "WetCloudyNight --car-lights-on",
+        16: "WetCloudyNight",
         17: "WetCloudyNoon",
         18: "WetCloudySunset",
-        19: "WetNight --car-lights-on",
+        19: "WetNight",
         20: "WetNoon",
         21: "WetSunset"
     }
     return switcher.get(index, "Default")
+
+
+def vehicle_light_status(index):
+    switcher = {
+        1 or 4 or 7 or 11 or 13 or 16 or 19: "--car-lights-on",
+    }
+    return switcher.get(index, "")
 
 
 def fitness_func(solution, solution_idx):
@@ -64,35 +96,48 @@ def fitness_func(solution, solution_idx):
         #         "-a"
         #     ], cwd="scenario_runner"
         # )
-        p2 = Popen(
-            [
-                "python",
-                "control_vehicle.py",
-                "--sync",
-                "--filter",
-                "vehicle.lincoln.mkz_2020",
-                "--speed",
-                str(solution[0]),
-                "--behavior",
-                "custom",
-                "--xodr-path",
-                "../maps/{chosen_map}.xodr".format(
-                    chosen_map=choose_map(solution[1])),
-                "--number-of-vehicles",
-                str(solution[2]),
-                "--weather",
-                choose_weather(solution[3])
-            ], cwd="examples"
-        )
-        status = p2.wait(300)  # timeout after 300 seconds
+        try:
+            p2 = Popen(
+                [
+                    "python",
+                    "control_vehicle.py",
+                    "--sync",
+                    "--filter",
+                    "vehicle.lincoln.mkz_2020",
+                    "--speed",
+                    str(solution[0]),
+                    "--behavior",
+                    "custom",
+                    "--xodr-path",
+                    "../maps/{chosen_map}.xodr".format(
+                        chosen_map=choose_map(solution[1])),
+                    "--number-of-vehicles",
+                    str(solution[2]),
+                    "--weather",
+                    choose_weather(solution[3]),
+                    vehicle_light_status(solution[3]),
+                    "--start",
+                    chosen_map_start_point(solution[1]),
+                    "--end",
+                    chosen_map_end_point(solution[1])
+                ], cwd="examples", start_new_session=True
+            )
+            status = p2.wait(timeout=300)
+        except TimeoutExpired:
+            status = 1
+            os.killpg(os.getpgid(p2.pid), signal.SIGTERM)
         print("finished simulation with status code " + str(status))
     # TODO: write parameters to an xml file as scenario
     fitness = random.randint(1, 10)  # TODO: run carla and get score
     return fitness
 
 
-def on_generation(ga_instance):
-    print(ga_instance)
+def on_fitness(ga_instance, population_fitness):
+    global population_num
+    with open("populations.csv", "a", encoding="utf8") as file:
+        file.write('%r,%r,%r\n' % (population_num,
+                   str(ga_instance.population), str(population_fitness)))
+    population_num += 1
 
 
 ga_instance = pygad.GA(
@@ -107,10 +152,9 @@ ga_instance = pygad.GA(
     mutation_num_genes=1,
     gene_space=gene_space,
     initial_population=initial_population,
-    on_generation=on_generation
+    on_fitness=on_fitness
 )
 
-print(ga_instance.population)
 
 ga_instance.run()
 ga_instance.plot_fitness()

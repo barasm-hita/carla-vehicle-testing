@@ -22,8 +22,13 @@
                 "maps/bahrain_international_circuit.xodr",
                 "--number-of-vehicles",
                 "30",
+                "--weather",
+                "ClearNight",
+                "--car-lights-on",
                 "--start",
-                "6"
+                "669.7,-92.7,3,242",
+                "--end",
+                "1044.9,-1741.3,3"
             ]
         },
         {
