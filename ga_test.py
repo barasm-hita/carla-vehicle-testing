@@ -4,6 +4,7 @@ from subprocess import Popen
 
 gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 5},
               {'low': 0, 'high': 51}, {'low': 0, 'high': 22}]
+initial_population = None
 
 
 def choose_map(index):
@@ -90,6 +91,10 @@ def fitness_func(solution, solution_idx):
     return fitness
 
 
+def on_generation(ga_instance):
+    print(ga_instance)
+
+
 ga_instance = pygad.GA(
     num_generations=10,
     num_parents_mating=4,
@@ -100,8 +105,12 @@ ga_instance = pygad.GA(
     init_range_high=5,
     gene_type=int,
     mutation_num_genes=1,
-    gene_space=gene_space
+    gene_space=gene_space,
+    initial_population=initial_population,
+    on_generation=on_generation
 )
+
+print(ga_instance.population)
 
 ga_instance.run()
 ga_instance.plot_fitness()

@@ -21,7 +21,9 @@
                 "--xodr-path",
                 "maps/bahrain_international_circuit.xodr",
                 "--number-of-vehicles",
-                "30"
+                "30",
+                "--start",
+                "6"
             ]
         },
         {

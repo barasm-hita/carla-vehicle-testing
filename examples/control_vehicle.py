@@ -91,12 +91,12 @@ class World(object):
         self._weather_presets = find_weather_presets()
         self._weather_index = 0
         self._actor_filter = args.filter
-        self.restart()
+        self.restart(args)
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
 
-    def restart(self):
+    def restart(self, args):
         """Restart the world"""
         # Keep same camera config if the camera manager exists.
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
@@ -126,8 +126,8 @@ class World(object):
                 print('Please add some Vehicle Spawn Point to your UE4 scene.')
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
-            spawn_point = random.choice(
-                spawn_points) if spawn_points else carla.Transform()
+            # Get the spawn point from input arguments
+            spawn_point = spawn_points[args.start]
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.modify_vehicle_physics(self.player)
 
@@ -897,6 +897,11 @@ def main():
         default=30,
         type=int,
         help='Speed of vehicle in custom mode (default: 30)')
+    argparser.add_argument(
+        '--start',
+        default=0,
+        type=int,
+        help='Vehicle start point index from spawn points list (default: 0)')
 
     args = argparser.parse_args()
 
