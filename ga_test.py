@@ -78,8 +78,8 @@ def vehicle_light_status(index):
 
 
 def fitness_func(solution, solution_idx):
-    status = 1
-    while(status != 0):
+    status = -1
+    while(status != -1):
         print("started simulation")
         # _ = Popen(
         #     [
@@ -124,7 +124,7 @@ def fitness_func(solution, solution_idx):
             )
             status = p2.wait(timeout=300)
         except TimeoutExpired:
-            status = 1
+            status = -1
             os.killpg(os.getpgid(p2.pid), signal.SIGTERM)
         print("finished simulation with status code " + str(status))
     # TODO: write parameters to an xml file as scenario

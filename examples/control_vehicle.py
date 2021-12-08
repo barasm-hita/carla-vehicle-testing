@@ -44,8 +44,10 @@ from agents.navigation.basic_agent import BasicAgent  # pylint: disable=import-e
 
 
 # ==============================================================================
-# -- Global functions ----------------------------------------------------------
+# -- Global functions & variables ----------------------------------------------
 # ==============================================================================
+
+incidents = []
 
 
 def find_weather_presets():
@@ -81,7 +83,7 @@ class World(object):
             print('  The server could not send the OpenDRIVE (.xodr) file:')
             print(
                 '  Make sure it exists, has the same name of your town, and is correct.')
-            sys.exit(1)
+            sys.exit(-1)
         self.hud = hud
         self.player = None
         self.collision_sensor = None
@@ -431,6 +433,7 @@ class CollisionSensor(object):
             return
         actor_type = get_actor_display_name(event.other_actor)
         self.hud.notification('Collision with %r' % actor_type)
+        incidents.append(2)
         with open("collisions.csv", "a", encoding="utf8") as file:
             file.write('%r,%r,%r\n' % (actor_type, self.hud.simulation_time, round(
                 calculate_speed_from_velocity(self.hud.velocity))))
@@ -472,6 +475,7 @@ class LaneInvasionSensor(object):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ['%r' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
+        incidents.append(1)
         with open("invasions.csv", "a", encoding="utf8") as file:
             file.write('%s,%r,%r\n' % (' and '.join(text), self.hud.simulation_time, round(
                 calculate_speed_from_velocity(self.hud.velocity))))
@@ -683,9 +687,13 @@ def calculate_speed_from_velocity(velocity):
     return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
 
 
-def calculate_driving_score():
-    # TODO: complete score calculation
-    return None
+def calculate_driving_score(success=False):
+    if success:
+        sum = incidents.count(2) * 2    # collisions
+        sum += incidents.count(1)       # invasions
+        return sum
+    else:
+        return -1
 
 # ==============================================================================
 # -- Game Loop ---------------------------------------------------------
@@ -925,7 +933,7 @@ def main():
                     data = od_file.read()
                 except OSError:
                     print('file could not be readed.')
-                    sys.exit()
+                    sys.exit(-1)
             print('load opendrive map %r.' % os.path.basename(args.xodr_path))
             vertex_distance = 2.0   # in meters
             max_road_length = 500.0  # in meters
@@ -948,7 +956,7 @@ def main():
                     data = od_file.read()
                 except OSError:
                     print('file could not be readed.')
-                    sys.exit()
+                    sys.exit(-1)
             print('Converting OSM data to opendrive')
             xodr_data = carla.Osm2Odr.convert(data)
             print('load opendrive map.')
@@ -986,8 +994,14 @@ def main():
     blueprints = get_actor_blueprints(world, args.filterv, args.generationv)
     blueprints = sorted(blueprints, key=lambda bp: bp.id)
 
-    spawn_points = world.get_map().get_spawn_points()
-    spawn_points = spawn_points[:1]  # temp!
+    # [(655.54, -119.49), (642.3, -146.75), (629.07, -174.01)]
+    spawn_points = []
+    last_x = 669.7
+    last_y = -92.7
+    for i in range(50):
+        last_x -= 13
+        last_y = (2.06*last_x)-1469.89
+        spawn_points.append((last_x, last_y))
     number_of_spawn_points = len(spawn_points)
 
     if args.number_of_vehicles < number_of_spawn_points:
@@ -1010,9 +1024,7 @@ def main():
     synchronous_master = False
     batch = []
     hero = args.hero
-    for n, transform in enumerate(spawn_points):
-        if n >= args.number_of_vehicles:
-            break
+    for i, (x, y) in enumerate(spawn_points):
         blueprint = random.choice(blueprints)
         if blueprint.has_attribute('color'):
             color = random.choice(
@@ -1034,7 +1046,9 @@ def main():
             light_state = vls.Position | vls.LowBeam | vls.LowBeam
 
         # spawn the cars and set their autopilot and light state all together
-        batch.append(SpawnActor(blueprint, transform)
+        loc = carla.Location(x, y, 3)
+        rot = carla.Rotation(yaw=242)
+        batch.append(SpawnActor(blueprint, carla.Transform(loc, rot))
                      .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
                      .then(SetVehicleLightState(FutureActor, light_state)))
 
@@ -1046,11 +1060,11 @@ def main():
 
     try:
         game_loop(args)
+        sys.exit(calculate_driving_score(True))
 
     except:
         print('\nAn error has occurred.')
-
-    calculate_driving_score()
+        sys.exit(calculate_driving_score(False))
 
 
 if __name__ == '__main__':
