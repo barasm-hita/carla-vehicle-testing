@@ -10,6 +10,7 @@ import math
 import os
 import textwrap
 import numpy.random as random
+from random import sample
 import re
 import sys
 import weakref
@@ -994,18 +995,16 @@ def main():
     blueprints = get_actor_blueprints(world, args.filterv, args.generationv)
     blueprints = sorted(blueprints, key=lambda bp: bp.id)
 
-    # [(655.54, -119.49), (642.3, -146.75), (629.07, -174.01)]
-    spawn_points = []
-    last_x = 669.7
-    last_y = -92.7
-    for i in range(50):
-        last_x -= 13
-        last_y = (2.06*last_x)-1469.89
-        spawn_points.append((last_x, last_y))
+    spawn_points = world.get_map().generate_waypoints(distance=10)
     number_of_spawn_points = len(spawn_points)
 
+    for w in spawn_points:
+        world.debug.draw_string(w.transform.location, 'O', draw_shadow=False,
+                                       color=carla.Color(r=255, g=0, b=0), life_time=120.0,
+                                       persistent_lines=True)
+
     if args.number_of_vehicles < number_of_spawn_points:
-        random.shuffle(spawn_points)
+        spawn_points = sample(spawn_points, args.number_of_vehicles)
     elif args.number_of_vehicles > number_of_spawn_points:
         msg = 'requested %d vehicles, but could only find %d spawn points'
         logging.warning(msg, args.number_of_vehicles, number_of_spawn_points)
@@ -1024,7 +1023,7 @@ def main():
     synchronous_master = False
     batch = []
     hero = args.hero
-    for i, (x, y) in enumerate(spawn_points):
+    for i, sp in enumerate(spawn_points):
         blueprint = random.choice(blueprints)
         if blueprint.has_attribute('color'):
             color = random.choice(
@@ -1046,9 +1045,7 @@ def main():
             light_state = vls.Position | vls.LowBeam | vls.LowBeam
 
         # spawn the cars and set their autopilot and light state all together
-        loc = carla.Location(x, y, 3)
-        rot = carla.Rotation(yaw=242)
-        batch.append(SpawnActor(blueprint, carla.Transform(loc, rot))
+        batch.append(SpawnActor(blueprint, sp.transform)
                      .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
                      .then(SetVehicleLightState(FutureActor, light_state)))
 

@@ -81,23 +81,8 @@ def fitness_func(solution, solution_idx):
     status = -1
     while(status != -1):
         print("started simulation")
-        # _ = Popen(
-        #     [
-        #         "python",
-        #         "scenario_runner.py",
-        #         "--scenario",
-        #         "bahrain_international_circuit"
-        #     ], cwd="scenario_runner"
-        # )
-        # p2 = Popen(
-        #     [
-        #         "python",
-        #         "manual_control.py",
-        #         "-a"
-        #     ], cwd="scenario_runner"
-        # )
         try:
-            p2 = Popen(
+            p = Popen(
                 [
                     "python",
                     "control_vehicle.py",
@@ -122,10 +107,10 @@ def fitness_func(solution, solution_idx):
                     chosen_map_end_point(solution[1])
                 ], cwd="examples", start_new_session=True
             )
-            status = p2.wait(timeout=300)
+            status = p.wait(timeout=300)
         except TimeoutExpired:
             status = -1
-            os.killpg(os.getpgid(p2.pid), signal.SIGTERM)
+            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
         print("finished simulation with status code " + str(status))
     # TODO: write parameters to an xml file as scenario
     fitness = random.randint(1, 10)  # TODO: run carla and get score
