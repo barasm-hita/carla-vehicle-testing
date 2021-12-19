@@ -5,7 +5,7 @@ from subprocess import Popen, TimeoutExpired
 import signal
 
 gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 1},
-              {'low': 0, 'high': 51}, {'low': 0, 'high': 22}]
+              {'low': 0, 'high': 51}, {'low': 1, 'high': 22}]
 initial_population = None
 population_num = 0
 
@@ -71,15 +71,15 @@ def choose_weather(index):
 
 
 def vehicle_light_status(index):
-    switcher = {
-        1 or 4 or 7 or 11 or 13 or 16 or 19: "--car-lights-on",
-    }
-    return switcher.get(index, "")
+    if index in [1, 4, 7, 11, 13, 16, 19]:
+        return "--car-lights-on"
+    else:
+        return ""
 
 
 def fitness_func(solution, solution_idx):
     status = -1
-    while(status != -1):
+    while(status == -1):
         print("started simulation")
         try:
             p = Popen(
@@ -112,8 +112,10 @@ def fitness_func(solution, solution_idx):
             status = -1
             os.killpg(os.getpgid(p.pid), signal.SIGTERM)
         print("finished simulation with status code " + str(status))
-    # TODO: write parameters to an xml file as scenario
-    fitness = random.randint(1, 10)  # TODO: run carla and get score
+        with open("scenarios.csv", "a", encoding="utf8") as file:
+            file.write('%r,%r,%r,%r,%r\n' % (str(solution[0]), str(
+                solution[1]), str(solution[2]), str(solution[3]), str(status)))
+    fitness = status
     return fitness
 
 
@@ -143,8 +145,3 @@ ga_instance = pygad.GA(
 
 ga_instance.run()
 ga_instance.plot_fitness()
-
-solution, solution_fitness, solution_idx = ga_instance.best_solution()
-print("Parameters of the best solution : {solution}".format(solution=solution))
-print("Fitness value of the best solution = {solution_fitness}".format(
-    solution_fitness=solution_fitness))
