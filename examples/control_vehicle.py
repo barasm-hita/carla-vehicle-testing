@@ -999,9 +999,9 @@ def main():
     number_of_spawn_points = len(spawn_points)
 
     for w in spawn_points:
-        world.debug.draw_string(w.transform.location, 'O', draw_shadow=False,
-                                       color=carla.Color(r=255, g=0, b=0), life_time=120.0,
-                                       persistent_lines=True)
+        world.debug.draw_string(w.transform.location, '*', draw_shadow=False,
+                                color=carla.Color(r=255, g=0, b=0), life_time=120.0,
+                                persistent_lines=True)
 
     if args.number_of_vehicles < number_of_spawn_points:
         spawn_points = sample(spawn_points, args.number_of_vehicles)
@@ -1045,9 +1045,12 @@ def main():
             light_state = vls.Position | vls.LowBeam | vls.LowBeam
 
         # spawn the cars and set their autopilot and light state all together
-        batch.append(SpawnActor(blueprint, sp.transform)
+        loc = carla.Location(
+            sp.transform.location.x, sp.transform.location.y, sp.transform.location.z + 0.5)
+        batch.append(SpawnActor(blueprint, carla.Transform(loc, sp.transform.rotation))
                      .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
                      .then(SetVehicleLightState(FutureActor, light_state)))
+        print('Spawned vehicle number ' + str(i + 1))
 
     for response in client.apply_batch_sync(batch, synchronous_master):
         if response.error:
