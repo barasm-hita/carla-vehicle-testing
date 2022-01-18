@@ -51,21 +51,21 @@ def choose_weather(index):
         4: "CloudyNight",
         5: "CloudyNoon",
         6: "CloudySunset",
-        7: "HardRainNight",
-        8: "HardRainNoon",
-        9: "HardRainSunset",
-        10: "MidRainSunset",
-        11: "MidRainyNight",
-        12: "MidRainyNoon",
+        7: "WetNight",
+        8: "WetNoon",
+        9: "WetSunset",
+        10: "WetCloudyNight",
+        11: "WetCloudyNoon",
+        12: "WetCloudySunset",
         13: "SoftRainNight",
         14: "SoftRainNoon",
         15: "SoftRainSunset",
-        16: "WetCloudyNight",
-        17: "WetCloudyNoon",
-        18: "WetCloudySunset",
-        19: "WetNight",
-        20: "WetNoon",
-        21: "WetSunset"
+        16: "MidRainSunset",
+        17: "MidRainyNight",
+        18: "MidRainyNoon",
+        19: "HardRainNight",
+        20: "HardRainNoon",
+        21: "HardRainSunset"
     }
     return switcher.get(index, "Default")
 
