@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import argparse
+from ast import arg
 import collections
 import datetime
 import logging
@@ -688,11 +689,11 @@ def calculate_speed_from_velocity(velocity):
     return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
 
 
-def calculate_driving_score(success=False):
+def calculate_driving_score(speed, success=False):
     if success:
         sum = incidents.count(2) * 2    # collisions
         sum += incidents.count(1)       # invasions
-        return sum
+        return sum / speed
     else:
         return -1
 
@@ -1060,11 +1061,11 @@ def main():
 
     try:
         game_loop(args)
-        sys.exit(calculate_driving_score(True))
+        sys.exit(calculate_driving_score(args.speed, True))
 
     except:
         print('\nAn error has occurred.')
-        sys.exit(calculate_driving_score(False))
+        sys.exit(calculate_driving_score(args.speed, False))
 
 
 if __name__ == '__main__':
