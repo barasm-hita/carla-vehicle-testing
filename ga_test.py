@@ -1,6 +1,5 @@
 import os
 import pygad
-import random
 from subprocess import Popen, TimeoutExpired
 import signal
 
@@ -24,10 +23,10 @@ def choose_map(index):
 def chosen_map_start_point(index):
     switcher = {
         0: "669.7,-92.7,3,242",
-        1: "0,0,3,0",
-        2: "0,0,3,0",
-        3: "0,0,3,0",
-        4: "0,0,3,0"
+        1: "2.5,-662.5,3,83.8",
+        2: "998,-7,3,-171.2",
+        3: "586.5,-1250.3,3,27.6",
+        4: "948.8,-993.8,3,-157.4"
     }
     return switcher.get(index, "669.7,-92.7,3,242")
 
@@ -38,40 +37,40 @@ def chosen_map_end_point(index):
         1: "0,0,3",
         2: "0,0,3",
         3: "0,0,3",
-        4: "0,0,3"
+        4: "1010.56,-969.89,3"
     }
     return switcher.get(index, "670,-92,3")
 
 
 def choose_weather(index):
     switcher = {
-        1: "ClearNight",
-        2: "ClearNoon",
+        1: "ClearNoon",
+        2: "CloudyNoon",
         3: "ClearSunset",
-        4: "CloudyNight",
-        5: "CloudyNoon",
-        6: "CloudySunset",
-        7: "WetNight",
-        8: "WetNoon",
+        4: "CloudySunset",
+        5: "WetNoon",
+        6: "ClearNight",
+        7: "CloudyNight",
+        8: "WetCloudyNoon",
         9: "WetSunset",
-        10: "WetCloudyNight",
-        11: "WetCloudyNoon",
-        12: "WetCloudySunset",
-        13: "SoftRainNight",
-        14: "SoftRainNoon",
-        15: "SoftRainSunset",
-        16: "MidRainSunset",
-        17: "MidRainyNight",
-        18: "MidRainyNoon",
-        19: "HardRainNight",
-        20: "HardRainNoon",
-        21: "HardRainSunset"
+        10: "WetCloudySunset",
+        11: "SoftRainNoon",
+        12: "WetNight",
+        13: "SoftRainSunset",
+        14: "MidRainyNoon",
+        15: "WetCloudyNight",
+        16: "HardRainNoon",
+        17: "MidRainSunset",
+        18: "SoftRainNight",
+        19: "HardRainSunset",
+        20: "MidRainyNight",
+        21: "HardRainNight",
     }
     return switcher.get(index, "Default")
 
 
 def vehicle_light_status(index):
-    if index in [1, 4, 7, 11, 13, 16, 19]:
+    if index in [6, 7, 12, 15, 18, 20, 21]:
         return "--car-lights-on"
     else:
         return ""
@@ -88,7 +87,7 @@ def fitness_func(solution, solution_idx):
                     "control_vehicle.py",
                     "--sync",
                     "--filter",
-                    "vehicle.lincoln.mkz_2020",
+                    "vehicle.tesla.model3",
                     "--speed",
                     str(solution[0]),
                     "--behavior",

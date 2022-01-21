@@ -49,7 +49,8 @@ from agents.navigation.basic_agent import BasicAgent  # pylint: disable=import-e
 # -- Global functions & variables ----------------------------------------------
 # ==============================================================================
 
-incidents = []
+collisions = {}
+invasions = {}
 
 
 def find_weather_presets():
@@ -435,7 +436,8 @@ class CollisionSensor(object):
             return
         actor_type = get_actor_display_name(event.other_actor)
         self.hud.notification('Collision with %r' % actor_type)
-        incidents.append(2)
+        collisions[self.hud.simulation_time] = round(
+            calculate_speed_from_velocity(self.hud.velocity))
         with open("collisions.csv", "a", encoding="utf8") as file:
             file.write('%r,%r,%r\n' % (actor_type, self.hud.simulation_time, round(
                 calculate_speed_from_velocity(self.hud.velocity))))
@@ -477,7 +479,8 @@ class LaneInvasionSensor(object):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ['%r' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
-        incidents.append(1)
+        invasions[self.hud.simulation_time] = round(
+            calculate_speed_from_velocity(self.hud.velocity))
         with open("invasions.csv", "a", encoding="utf8") as file:
             file.write('%s,%r,%r\n' % (' and '.join(text), self.hud.simulation_time, round(
                 calculate_speed_from_velocity(self.hud.velocity))))
@@ -689,13 +692,13 @@ def calculate_speed_from_velocity(velocity):
     return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
 
 
-def calculate_driving_score(speed, success=False):
-    if success:
-        sum = incidents.count(2) * 2    # collisions
-        sum += incidents.count(1)       # invasions
-        return sum / speed
-    else:
-        return -1
+def calculate_driving_score(target_speed):
+    sum = 0
+    for i in collisions:
+        sum += (2 * (target_speed - collisions[i])) / target_speed
+    for i in invasions:
+        sum += (target_speed - invasions[i]) / target_speed
+    return sum
 
 # ==============================================================================
 # -- Game Loop ---------------------------------------------------------
@@ -999,10 +1002,18 @@ def main():
     spawn_points = world.get_map().generate_waypoints(distance=10)
     number_of_spawn_points = len(spawn_points)
 
-    for w in spawn_points:
-        world.debug.draw_string(w.transform.location, '*', draw_shadow=False,
-                                color=carla.Color(r=255, g=0, b=0), life_time=120.0,
+    start_loc = carla.Location(
+        float(args.start.split(',')[0]),  # x
+        float(args.start.split(',')[1]),  # y
+        float(args.start.split(',')[2])  # z
+    )
+
+    for i, sp in enumerate(spawn_points):
+        world.debug.draw_string(sp.transform.location, str(i), draw_shadow=False,
+                                color=carla.Color(r=255, g=0, b=0), life_time=1200.0,
                                 persistent_lines=True)
+        if abs(sp.transform.location.x - start_loc.x) < 5 and abs(sp.transform.location.y - start_loc.y) < 5:
+            spawn_points.remove(sp)
 
     if args.number_of_vehicles < number_of_spawn_points:
         spawn_points = sample(spawn_points, args.number_of_vehicles)
@@ -1061,11 +1072,12 @@ def main():
 
     try:
         game_loop(args)
-        sys.exit(calculate_driving_score(args.speed, True))
 
-    except:
-        print('\nAn error has occurred.')
-        sys.exit(calculate_driving_score(args.speed, False))
+    except Exception as e:
+        print('\nAn error has occurred: ' + str(e))
+        sys.exit(-1)
+
+    sys.exit(calculate_driving_score(args.speed))
 
 
 if __name__ == '__main__':

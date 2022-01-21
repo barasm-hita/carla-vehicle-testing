@@ -13,22 +13,22 @@
             "args": [
                 "--sync",
                 "--filter",
-                "vehicle.lincoln.mkz_2020",
+                "vehicle.tesla.model3",
                 "--speed",
                 "120",
                 "--behavior",
                 "custom",
                 "--xodr-path",
-                "maps/bahrain_international_circuit.xodr",
+                "maps/suzuka_circuit.xodr",
                 "--number-of-vehicles",
                 "30",
-                // "--weather",
-                // "ClearNight",
-                // "--car-lights-on",
+                "--weather",
+                "ClearNight",
+                "--car-lights-on",
                 "--start",
-                "669.7,-92.7,3,242",
+                "948.8,-993.8,3,-157.4",
                 "--end",
-                "1044.9,-1741.3,3"
+                "1016.4,-989,3"
             ]
         },
         {
