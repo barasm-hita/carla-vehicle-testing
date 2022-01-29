@@ -37,7 +37,7 @@ def chosen_map_end_point(index):
         1: "0,0,3",
         2: "0,0,3",
         3: "0,0,3",
-        4: "1010.56,-969.89,3"
+        4: "1016.4,-989,3"
     }
     return switcher.get(index, "670,-92,3")
 

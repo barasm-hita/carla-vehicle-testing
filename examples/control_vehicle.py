@@ -557,9 +557,9 @@ class LaneInvasionSensor(object):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ['%r' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
-        invasion = Incident('invasion', self.hud.simulation_time, round(
-            calculate_speed_from_velocity(self.hud.velocity)))
-        incidents.append(invasion)
+        # invasion = Incident('invasion', self.hud.simulation_time, round(
+        #     calculate_speed_from_velocity(self.hud.velocity)))
+        # incidents.append(invasion)
 
 # ==============================================================================
 # -- GnssSensor --------------------------------------------------------
