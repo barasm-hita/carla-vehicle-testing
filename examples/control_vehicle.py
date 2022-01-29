@@ -3,13 +3,13 @@
 from __future__ import print_function
 
 import argparse
-from ast import arg
 import collections
 import datetime
 import logging
 import math
 import os
 import textwrap
+from turtle import speed
 import numpy.random as random
 from random import sample
 import re
@@ -31,6 +31,7 @@ except ImportError as import_error:
 # ==============================================================================
 # -- Add PythonAPI for release mode --------------------------------------------
 # ==============================================================================
+
 try:
     sys.path.append(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))) + '/carla')
@@ -44,13 +45,11 @@ from carla import VehicleLightState as vls
 from agents.navigation.behavior_agent import BehaviorAgent  # pylint: disable=import-error
 from agents.navigation.basic_agent import BasicAgent  # pylint: disable=import-error
 
-
 # ==============================================================================
 # -- Global functions & variables ----------------------------------------------
 # ==============================================================================
 
-collisions = {}
-invasions = {}
+incidents = []
 
 
 def find_weather_presets():
@@ -68,9 +67,90 @@ def get_actor_display_name(actor, truncate=250):
     return (name[:truncate - 1] + u'\u2026') if len(name) > truncate else name
 
 
+def list_options(client):
+    maps = [m.replace('/Game/Carla/Maps/', '')
+            for m in client.get_available_maps()]
+    indent = 4 * ' '
+
+    def wrap(text):
+        return '\n'.join(textwrap.wrap(text, initial_indent=indent, subsequent_indent=indent))
+    print('weather presets:\n')
+    print(wrap(', '.join(x for _, x in find_weather_presets())) + '.\n')
+    print('available maps:\n')
+    print(wrap(', '.join(sorted(maps))) + '.\n')
+
+
+def get_actor_blueprints(world, filter, generation):
+    bps = world.get_blueprint_library().filter(filter)
+
+    if generation.lower() == "all":
+        return bps
+
+    # If the filter returns only one bp, we assume that this one needed
+    # and therefore, we ignore the generation
+    if len(bps) == 1:
+        return bps
+
+    try:
+        int_generation = int(generation)
+        # Check if generation is in available generations
+        if int_generation in [1, 2]:
+            bps = [x for x in bps if int(
+                x.get_attribute('generation')) == int_generation]
+            return bps
+        else:
+            print("   Warning! Actor Generation is not valid. No actor will be spawned.")
+            return []
+    except:
+        print("   Warning! Actor Generation is not valid. No actor will be spawned.")
+        return []
+
+
+def calculate_speed_from_velocity(velocity):
+    return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
+
+
+def calculate_driving_score(s_r):
+    total = 0
+    for i in incidents:
+        fit = incidents[i].get_fitness(s_r)
+        total += fit
+    return total
+
+
 # ==============================================================================
-# -- World ---------------------------------------------------------------
+# -- Incident ------------------------------------------------------------------
 # ==============================================================================
+
+
+class Incident(object):
+    def __init__(self, type, time, s_a):
+        self.type = type
+        self.s_a = s_a
+        self.time = time
+
+    def get_fitness(self, s_r):
+        if self.type == 'invasion':
+            fit = 1
+            fit -= (self.s_a + 1) / s_r
+            with open("incidents.csv", "a", encoding="utf8") as file:
+                file.write('%r,%r,%r,%r\n' %
+                           (self.time, self.s_a, s_r, self.type, fit))
+            return fit
+        elif self.type == 'collision':
+            fit = 2
+            fit -= (2 * self.s_a + 2) / s_r
+            with open("incidents.csv", "a", encoding="utf8") as file:
+                file.write('%r,%r,%r,%r\n' %
+                           (self.time, self.s_a, s_r, self.type, fit))
+            return fit
+        else:
+            return 0
+
+# ==============================================================================
+# -- World ---------------------------------------------------------------------
+# ==============================================================================
+
 
 class World(object):
     """ Class representing the surrounding environment """
@@ -428,7 +508,7 @@ class CollisionSensor(object):
             history[frame] += intensity
         return history
 
-    @staticmethod
+    @ staticmethod
     def _on_collision(weak_self, event):
         """On collision method"""
         self = weak_self()
@@ -436,11 +516,9 @@ class CollisionSensor(object):
             return
         actor_type = get_actor_display_name(event.other_actor)
         self.hud.notification('Collision with %r' % actor_type)
-        collisions[self.hud.simulation_time] = round(
-            calculate_speed_from_velocity(self.hud.velocity))
-        with open("collisions.csv", "a", encoding="utf8") as file:
-            file.write('%r,%r,%r\n' % (actor_type, self.hud.simulation_time, round(
-                calculate_speed_from_velocity(self.hud.velocity))))
+        collision = Incident('collision', self.hud.simulation_time, round(
+            calculate_speed_from_velocity(self.hud.velocity)))
+        incidents.append(collision)
         impulse = event.normal_impulse
         intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
         self.history.append((event.frame, intensity))
@@ -470,7 +548,7 @@ class LaneInvasionSensor(object):
         self.sensor.listen(
             lambda event: LaneInvasionSensor._on_invasion(weak_self, event))
 
-    @staticmethod
+    @ staticmethod
     def _on_invasion(weak_self, event):
         """On invasion method"""
         self = weak_self()
@@ -479,11 +557,9 @@ class LaneInvasionSensor(object):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ['%r' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
-        invasions[self.hud.simulation_time] = round(
-            calculate_speed_from_velocity(self.hud.velocity))
-        with open("invasions.csv", "a", encoding="utf8") as file:
-            file.write('%s,%r,%r\n' % (' and '.join(text), self.hud.simulation_time, round(
-                calculate_speed_from_velocity(self.hud.velocity))))
+        invasion = Incident('invasion', self.hud.simulation_time, round(
+            calculate_speed_from_velocity(self.hud.velocity)))
+        incidents.append(invasion)
 
 # ==============================================================================
 # -- GnssSensor --------------------------------------------------------
@@ -509,7 +585,7 @@ class GnssSensor(object):
         self.sensor.listen(
             lambda event: GnssSensor._on_gnss_event(weak_self, event))
 
-    @staticmethod
+    @ staticmethod
     def _on_gnss_event(weak_self, event):
         """GNSS method"""
         self = weak_self()
@@ -615,7 +691,7 @@ class CameraManager(object):
         if self.surface is not None:
             display.blit(self.surface, (0, 0))
 
-    @staticmethod
+    @ staticmethod
     def _parse_image(weak_self, image):
         self = weak_self()
         if not self:
@@ -644,61 +720,6 @@ class CameraManager(object):
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
 
-# ==============================================================================
-# -- Other Functions ---------------------------------------------------------
-# ==============================================================================
-
-
-def list_options(client):
-    maps = [m.replace('/Game/Carla/Maps/', '')
-            for m in client.get_available_maps()]
-    indent = 4 * ' '
-
-    def wrap(text):
-        return '\n'.join(textwrap.wrap(text, initial_indent=indent, subsequent_indent=indent))
-    print('weather presets:\n')
-    print(wrap(', '.join(x for _, x in find_weather_presets())) + '.\n')
-    print('available maps:\n')
-    print(wrap(', '.join(sorted(maps))) + '.\n')
-
-
-def get_actor_blueprints(world, filter, generation):
-    bps = world.get_blueprint_library().filter(filter)
-
-    if generation.lower() == "all":
-        return bps
-
-    # If the filter returns only one bp, we assume that this one needed
-    # and therefore, we ignore the generation
-    if len(bps) == 1:
-        return bps
-
-    try:
-        int_generation = int(generation)
-        # Check if generation is in available generations
-        if int_generation in [1, 2]:
-            bps = [x for x in bps if int(
-                x.get_attribute('generation')) == int_generation]
-            return bps
-        else:
-            print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-            return []
-    except:
-        print("   Warning! Actor Generation is not valid. No actor will be spawned.")
-        return []
-
-
-def calculate_speed_from_velocity(velocity):
-    return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
-
-
-def calculate_driving_score(target_speed):
-    sum = 0
-    for i in collisions:
-        sum += (2 * (target_speed - collisions[i])) / target_speed
-    for i in invasions:
-        sum += (target_speed - invasions[i]) / target_speed
-    return sum
 
 # ==============================================================================
 # -- Game Loop ---------------------------------------------------------

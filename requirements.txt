@@ -19,3 +19,4 @@ six
 simple-watchdog-timer
 py-cpuinfo
 python-tr
+pygad
