@@ -1,6 +1,6 @@
 import os
 import pygad
-from subprocess import Popen, TimeoutExpired
+import subprocess as sp
 import signal
 
 gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 1},
@@ -81,35 +81,36 @@ def fitness_func(solution, solution_idx):
     while(status == -1):
         print("started simulation")
         try:
-            p = Popen(
-                [
-                    "python",
-                    "control_vehicle.py",
-                    "--sync",
-                    "--filter",
-                    "vehicle.tesla.model3",
-                    "--speed",
-                    str(solution[0]),
-                    "--behavior",
-                    "custom",
-                    "--xodr-path",
-                    "../maps/{chosen_map}.xodr".format(
-                        chosen_map=choose_map(solution[1])),
-                    "--number-of-vehicles",
-                    str(solution[2]),
-                    "--weather",
-                    choose_weather(solution[3]),
-                    vehicle_light_status(solution[3]),
-                    "--start",
-                    chosen_map_start_point(solution[1]),
-                    "--end",
-                    chosen_map_end_point(solution[1])
-                ], cwd="examples", start_new_session=True
-            )
-            status = p.wait(timeout=300)
-        except TimeoutExpired:
+            cmd = [
+                "python",
+                "control_vehicle.py",
+                "--sync",
+                "--filter",
+                "vehicle.tesla.model3",
+                "--speed",
+                str(solution[0]),
+                "--behavior",
+                "custom",
+                "--xodr-path",
+                "../maps/{chosen_map}.xodr".format(
+                    chosen_map=choose_map(solution[1])),
+                "--number-of-vehicles",
+                str(solution[2]),
+                "--weather",
+                choose_weather(solution[3]),
+                vehicle_light_status(solution[3]),
+                "--start",
+                chosen_map_start_point(solution[1]),
+                "--end",
+                chosen_map_end_point(solution[1])
+            ]
+            print(' '.join(cmd))
+            p = sp.Popen(' '.join(cmd), cwd="examples", stdout=sp.PIPE,
+                         start_new_session=True, shell=True, creationflags=sp.CREATE_NEW_PROCESS_GROUP)
+            status = p.wait(timeout=120)
+        except sp.TimeoutExpired:
             status = -1
-            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+            p.send_signal(signal.CTRL_BREAK_EVENT)
         print("finished simulation with status code " + str(status))
         with open("scenarios.csv", "a", encoding="utf8") as file:
             file.write('%r,%r,%r,%r,%r\n' % (str(solution[0]), str(
