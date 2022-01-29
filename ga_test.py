@@ -105,12 +105,12 @@ def fitness_func(solution, solution_idx):
                 chosen_map_end_point(solution[1])
             ]
             print(' '.join(cmd))
-            p = sp.Popen(' '.join(cmd), cwd="examples", stdout=sp.PIPE,
-                         start_new_session=True, shell=True, creationflags=sp.CREATE_NEW_PROCESS_GROUP)
-            status = p.wait(timeout=120)
+            p = sp.Popen(' '.join(cmd), cwd="examples", start_new_session=True,
+                         shell=True, creationflags=sp.CREATE_NEW_PROCESS_GROUP)
+            status = p.wait(timeout=10)
         except sp.TimeoutExpired:
-            status = -1
             p.send_signal(signal.CTRL_BREAK_EVENT)
+            status = p.returncode
         print("finished simulation with status code " + str(status))
         with open("scenarios.csv", "a", encoding="utf8") as file:
             file.write('%r,%r,%r,%r,%r\n' % (str(solution[0]), str(

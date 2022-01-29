@@ -8,6 +8,7 @@ import datetime
 import logging
 import math
 import os
+import signal
 import textwrap
 from turtle import speed
 import numpy.random as random
@@ -49,6 +50,7 @@ from agents.navigation.basic_agent import BasicAgent  # pylint: disable=import-e
 # -- Global functions & variables ----------------------------------------------
 # ==============================================================================
 
+speed_requested = 0
 incidents = []
 
 
@@ -110,10 +112,10 @@ def calculate_speed_from_velocity(velocity):
     return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
 
 
-def calculate_driving_score(s_r):
+def calculate_driving_score():
     total = 0
     for i in incidents:
-        fit = incidents[i].get_fitness(s_r)
+        fit = incidents[i].get_fitness()
         total += fit
     return total
 
@@ -129,20 +131,20 @@ class Incident(object):
         self.s_a = s_a
         self.time = time
 
-    def get_fitness(self, s_r):
+    def get_fitness(self):
         if self.type == 'invasion':
             fit = 1
-            fit -= (self.s_a + 1) / s_r
+            fit -= (self.s_a + 1) / speed_requested
             with open("incidents.csv", "a", encoding="utf8") as file:
                 file.write('%r,%r,%r,%r\n' %
-                           (self.time, self.s_a, s_r, self.type, fit))
+                           (self.time, self.s_a, speed_requested, self.type, fit))
             return fit
         elif self.type == 'collision':
             fit = 2
-            fit -= (2 * self.s_a + 2) / s_r
+            fit -= (2 * self.s_a + 2) / speed_requested
             with open("incidents.csv", "a", encoding="utf8") as file:
                 file.write('%r,%r,%r,%r\n' %
-                           (self.time, self.s_a, s_r, self.type, fit))
+                           (self.time, self.s_a, speed_requested, self.type, fit))
             return fit
         else:
             return 0
@@ -1091,15 +1093,18 @@ def main():
         else:
             vehicles_list.append(response.actor_id)
 
-    try:
-        game_loop(args)
+    global speed_requested
+    speed_requested = args.speed
+    game_loop(args)
+    sys.exit(calculate_driving_score())
 
-    except Exception as e:
-        print('\nAn error has occurred: ' + str(e))
-        sys.exit(-1)
 
-    sys.exit(calculate_driving_score(args.speed))
+def signal_handler(sig, frame):
+    score = calculate_driving_score()
+    print(f"Received termination, score is {score}")
+    sys.exit(score)
 
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGBREAK, signal_handler)
     main()
