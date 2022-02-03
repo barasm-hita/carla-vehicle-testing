@@ -135,16 +135,16 @@ class Incident(object):
         if self.type == 'invasion':
             fit = 1
             fit -= (self.s_a + 1) / speed_requested
-            with open("../incidents.csv", "a", encoding="utf8") as file:
-                file.write('%r,%r,%r,%r\n' %
-                           (self.time, self.s_a, speed_requested, self.type, fit))
+            with open(os.path.join(os.pardir, "incidents.csv"), "a", encoding="utf8") as file:
+                file.write('%s,%s,%s,%s,%s\n' % (str(self.time), str(
+                    self.s_a), str(speed_requested), str(self.type), str(fit)))
             return fit
         elif self.type == 'collision':
             fit = 2
             fit -= (2 * self.s_a + 2) / speed_requested
-            with open("../incidents.csv", "a", encoding="utf8") as file:
-                file.write('%r,%r,%r,%r\n' %
-                           (self.time, self.s_a, speed_requested, self.type, fit))
+            with open(os.path.join(os.pardir, "incidents.csv"), "a", encoding="utf8") as file:
+                file.write('%s,%s,%s,%s,%s\n' % (str(self.time), str(
+                    self.s_a), str(speed_requested), str(self.type), str(fit)))
             return fit
         else:
             return 0
@@ -517,7 +517,7 @@ class CollisionSensor(object):
         if not self:
             return
         actor_type = get_actor_display_name(event.other_actor)
-        self.hud.notification('Collision with %r' % actor_type)
+        self.hud.notification('Collision with %s' % actor_type)
         collision = Incident('collision', self.hud.simulation_time, round(
             calculate_speed_from_velocity(self.hud.velocity)))
         incidents.append(collision)
@@ -557,7 +557,7 @@ class LaneInvasionSensor(object):
         if not self:
             return
         lane_types = set(x.type for x in event.crossed_lane_markings)
-        text = ['%r' % str(x).split()[-1] for x in lane_types]
+        text = ['%s' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
         # invasion = Incident('invasion', self.hud.simulation_time, round(
         #     calculate_speed_from_velocity(self.hud.velocity)))
@@ -949,7 +949,7 @@ def main():
     logging.info('listening to server %s:%s', args.host, args.port)
 
     if args.map is not None:
-        print('load map %r.' % args.map)
+        print('load map %s.' % args.map)
         world = client.load_world(args.map)
     elif args.reload_map:
         print('reload map.')
@@ -962,7 +962,7 @@ def main():
                 except OSError:
                     print('file could not be readed.')
                     sys.exit(-1)
-            print('load opendrive map %r.' % os.path.basename(args.xodr_path))
+            print('load opendrive map %s.' % os.path.basename(args.xodr_path))
             vertex_distance = 2.0   # in meters
             max_road_length = 500.0  # in meters
             wall_height = 1.0       # in meters
@@ -1011,9 +1011,9 @@ def main():
         sys.exit()
     if args.weather is not None:
         if not hasattr(carla.WeatherParameters, args.weather):
-            print('ERROR: weather preset %r not found.' % args.weather)
+            print('ERROR: weather preset %s not found.' % args.weather)
         else:
-            print('set weather preset %r.' % args.weather)
+            print('set weather preset %s.' % args.weather)
             world.set_weather(getattr(carla.WeatherParameters, args.weather))
 
     traffic_manager = client.get_trafficmanager(args.tm_port)
@@ -1095,8 +1095,12 @@ def main():
 
     global speed_requested
     speed_requested = args.speed
-    game_loop(args)
-    sys.exit(calculate_driving_score())
+
+    try:
+        game_loop(args)
+        sys.exit(calculate_driving_score())
+    except KeyboardInterrupt:
+        sys.exit(calculate_driving_score())
 
 
 def signal_handler(sig, frame):

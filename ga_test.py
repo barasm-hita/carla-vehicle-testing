@@ -119,7 +119,7 @@ def fitness_func(solution, solution_idx):
         print("\033[2;31;40mfinished simulation with status code " +
               str(status) + "\033[0;0m")
         with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
-            file.write('%r,%r,%r,%r,%r\n' % (str(solution[0]), str(
+            file.write('%s,%s,%s,%s,%s\n' % (str(solution[0]), str(
                 solution[1]), str(solution[2]), str(solution[3]), str(status)))
     fitness = status
     return fitness
@@ -128,7 +128,7 @@ def fitness_func(solution, solution_idx):
 def on_fitness(ga_instance, population_fitness):
     global population_num
     with open("populations.csv", "a", encoding="utf8") as file:
-        file.write('%r,%r,%r\n' % (population_num,
+        file.write('%s,%s,%s\n' % (population_num,
                    str(ga_instance.population), str(population_fitness)))
     population_num += 1
 
