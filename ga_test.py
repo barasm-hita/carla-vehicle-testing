@@ -1,12 +1,16 @@
-import os
+import datetime
+import time
 import pygad
 import subprocess as sp
 import signal
 
-gene_space = [{'low': 30, 'high': 121}, {'low': 0, 'high': 1},
+gene_space = [{'low': 30, 'high': 121}, {'low': 4, 'high': 5},
               {'low': 0, 'high': 51}, {'low': 1, 'high': 22}]
 initial_population = None
 population_num = 0
+label = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
+    file.write('speed,map,traffic,weather,fitness\n')
 
 
 def choose_map(index):
@@ -107,12 +111,14 @@ def fitness_func(solution, solution_idx):
             print(' '.join(cmd))
             p = sp.Popen(' '.join(cmd), cwd="examples", start_new_session=True,
                          shell=True, creationflags=sp.CREATE_NEW_PROCESS_GROUP)
-            status = p.wait(timeout=10)
+            status = p.wait(timeout=150)
         except sp.TimeoutExpired:
             p.send_signal(signal.CTRL_BREAK_EVENT)
-            status = p.returncode
-        print("finished simulation with status code " + str(status))
-        with open("scenarios.csv", "a", encoding="utf8") as file:
+            time.sleep(5)
+            status = p.poll()
+        print("\033[2;31;40mfinished simulation with status code " +
+              str(status) + "\033[0;0m")
+        with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
             file.write('%r,%r,%r,%r,%r\n' % (str(solution[0]), str(
                 solution[1]), str(solution[2]), str(solution[3]), str(status)))
     fitness = status

@@ -115,7 +115,7 @@ def calculate_speed_from_velocity(velocity):
 def calculate_driving_score():
     total = 0
     for i in incidents:
-        fit = incidents[i].get_fitness()
+        fit = i.get_fitness()
         total += fit
     return total
 
@@ -135,14 +135,14 @@ class Incident(object):
         if self.type == 'invasion':
             fit = 1
             fit -= (self.s_a + 1) / speed_requested
-            with open("incidents.csv", "a", encoding="utf8") as file:
+            with open("../incidents.csv", "a", encoding="utf8") as file:
                 file.write('%r,%r,%r,%r\n' %
                            (self.time, self.s_a, speed_requested, self.type, fit))
             return fit
         elif self.type == 'collision':
             fit = 2
             fit -= (2 * self.s_a + 2) / speed_requested
-            with open("incidents.csv", "a", encoding="utf8") as file:
+            with open("../incidents.csv", "a", encoding="utf8") as file:
                 file.write('%r,%r,%r,%r\n' %
                            (self.time, self.s_a, speed_requested, self.type, fit))
             return fit
