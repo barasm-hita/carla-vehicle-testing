@@ -117,7 +117,7 @@ def calculate_driving_score():
     for i in incidents:
         fit = i.get_fitness()
         total += fit
-    return total
+    return -total
 
 
 # ==============================================================================
@@ -168,7 +168,7 @@ class World(object):
             print('  The server could not send the OpenDRIVE (.xodr) file:')
             print(
                 '  Make sure it exists, has the same name of your town, and is correct.')
-            sys.exit(-1)
+            sys.exit(1)
         self.hud = hud
         self.player = None
         self.collision_sensor = None
@@ -961,7 +961,7 @@ def main():
                     data = od_file.read()
                 except OSError:
                     print('file could not be readed.')
-                    sys.exit(-1)
+                    sys.exit(1)
             print('load opendrive map %s.' % os.path.basename(args.xodr_path))
             vertex_distance = 2.0   # in meters
             max_road_length = 500.0  # in meters
@@ -977,6 +977,7 @@ def main():
                     enable_mesh_visibility=True))
         else:
             print('file not found.')
+            sys.exit(1)
     elif args.osm_path is not None:
         if os.path.exists(args.osm_path):
             with open(args.osm_path, encoding='utf-8') as od_file:
@@ -984,7 +985,7 @@ def main():
                     data = od_file.read()
                 except OSError:
                     print('file could not be readed.')
-                    sys.exit(-1)
+                    sys.exit(1)
             print('Converting OSM data to opendrive')
             xodr_data = carla.Osm2Odr.convert(data)
             print('load opendrive map.')
@@ -1002,6 +1003,7 @@ def main():
                     enable_mesh_visibility=True))
         else:
             print('file not found.')
+            sys.exit(1)
 
     else:
         world = client.get_world()
@@ -1018,6 +1020,9 @@ def main():
 
     traffic_manager = client.get_trafficmanager(args.tm_port)
     traffic_manager.set_global_distance_to_leading_vehicle(2.5)
+
+    if args.xodr_path is not None or args.osm_path is not None:
+        traffic_manager.set_osm_mode(True)
 
     blueprints = get_actor_blueprints(world, args.filterv, args.generationv)
     blueprints = sorted(blueprints, key=lambda bp: bp.id)
@@ -1093,14 +1098,21 @@ def main():
         else:
             vehicles_list.append(response.actor_id)
 
+    traffic_vehicles = world.get_actors()
+    for v in traffic_vehicles:
+        if not v.type_id == 'spectator':
+            traffic_manager.auto_lane_change(v, True)
+
     global speed_requested
     speed_requested = args.speed
 
     try:
         game_loop(args)
-        sys.exit(calculate_driving_score())
+        score = calculate_driving_score()
+        sys.exit(score)
     except KeyboardInterrupt:
-        sys.exit(calculate_driving_score())
+        score = calculate_driving_score()
+        sys.exit(score)
 
 
 def signal_handler(sig, frame):

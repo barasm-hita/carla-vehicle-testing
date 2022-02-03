@@ -81,8 +81,8 @@ def vehicle_light_status(index):
 
 
 def fitness_func(solution, solution_idx):
-    status = -1
-    while(status == -1):
+    status = 1
+    while(status == 1):
         print("started simulation")
         try:
             cmd = [
@@ -121,7 +121,7 @@ def fitness_func(solution, solution_idx):
         with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
             file.write('%s,%s,%s,%s,%s\n' % (str(solution[0]), str(
                 solution[1]), str(solution[2]), str(solution[3]), str(status)))
-    fitness = status
+    fitness = -status
     return fitness
 
 
