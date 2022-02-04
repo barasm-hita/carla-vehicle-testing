@@ -1,8 +1,7 @@
 import datetime
-import time
 import pygad
-import subprocess as sp
-import signal
+
+from examples.control_vehicle import Main
 
 gene_space = [{'low': 30, 'high': 121}, {'low': 4, 'high': 5},
               {'low': 0, 'high': 51}, {'low': 1, 'high': 22}]
@@ -75,59 +74,40 @@ def choose_weather(index):
 
 def vehicle_light_status(index):
     if index in [6, 7, 12, 15, 18, 20, 21]:
-        return "--car-lights-on"
+        return True
     else:
-        return ""
+        return False
 
 
 def fitness_func(solution, solution_idx):
-    status = 1
-    while(status == 1):
-        print("started simulation")
-        try:
-            cmd = [
-                "python",
-                "control_vehicle.py",
-                "--sync",
-                "--filter",
-                "vehicle.tesla.model3",
-                "--speed",
-                str(solution[0]),
-                "--behavior",
-                "custom",
-                "--xodr-path",
-                "../maps/{chosen_map}.xodr".format(
-                    chosen_map=choose_map(solution[1])),
-                "--number-of-vehicles",
-                str(solution[2]),
-                "--weather",
-                choose_weather(solution[3]),
-                vehicle_light_status(solution[3]),
-                "--start",
-                chosen_map_start_point(solution[1]),
-                "--end",
-                chosen_map_end_point(solution[1])
-            ]
-            print(' '.join(cmd))
-            p = sp.Popen(' '.join(cmd), cwd="examples", start_new_session=True,
-                         shell=True, creationflags=sp.CREATE_NEW_PROCESS_GROUP)
-            status = p.wait(timeout=150)
-        except sp.TimeoutExpired:
-            p.send_signal(signal.CTRL_BREAK_EVENT)
-            time.sleep(5)
-            status = p.poll()
-        print("\033[2;31;40mfinished simulation with status code " +
-              str(status) + "\033[0;0m")
-        with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
-            file.write('%s,%s,%s,%s,%s\n' % (str(solution[0]), str(
-                solution[1]), str(solution[2]), str(solution[3]), str(status)))
-    fitness = -status
+    fitness = 0
+    print("started simulation")
+    main_obj = Main()
+    main_obj.xodr_path = "maps/{chosen_map}.xodr".format(
+        chosen_map=choose_map(solution[1]))
+    main_obj.start = chosen_map_start_point(solution[1])
+    main_obj.end = chosen_map_end_point(solution[1])
+    main_obj.filter = "vehicle.tesla.model3"
+    main_obj.number_of_vehicles = solution[2]
+    main_obj.speed = solution[0]
+    main_obj.sync = True
+    main_obj.behavior = "custom"
+    main_obj.car_lights_on = vehicle_light_status(solution[3])
+    main_obj.weather = choose_weather(solution[3])
+    main_obj.ready_up()
+    main_obj.game_loop()
+    main_obj.calculate_driving_score()
+    print("\033[1;31mfinished simulation with status code " +
+          str(fitness) + "\033[0;0m")
+    with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
+        file.write('%s,%s,%s,%s,%s\n' % (str(solution[0]), str(
+            solution[1]), str(solution[2]), str(solution[3]), str(fitness)))
     return fitness
 
 
 def on_fitness(ga_instance, population_fitness):
     global population_num
-    with open("populations.csv", "a", encoding="utf8") as file:
+    with open(f"populations_{label}.csv", "a", encoding="utf8") as file:
         file.write('%s,%s,%s\n' % (population_num,
                    str(ga_instance.population), str(population_fitness)))
     population_num += 1

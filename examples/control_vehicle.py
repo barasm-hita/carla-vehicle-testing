@@ -8,9 +8,7 @@ import datetime
 import logging
 import math
 import os
-import signal
 import textwrap
-from turtle import speed
 import numpy.random as random
 from random import sample
 import re
@@ -112,12 +110,322 @@ def calculate_speed_from_velocity(velocity):
     return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y**2 + velocity.z**2)
 
 
-def calculate_driving_score():
-    total = 0
-    for i in incidents:
-        fit = i.get_fitness()
-        total += fit
-    return -total
+class Main(object):
+    def __init__(self):
+        self.host = '127.0.0.1'
+        self.port = 2000
+        self.width = 1280
+        self.height = 720
+        self.res = '1280x720'
+        self.debug = False
+        self.map = None
+        self.reload_map = False
+        self.xodr_path = None
+        self.osm_path = None
+        self.weather = None
+        self.tm_port = 8000
+        self.filterv = 'vehicle.*'
+        self.generationv = 'All'
+        self.start = None
+        self.end = None
+        self.number_of_vehicles = 30
+        self.hero = False
+        self.car_lights_on = False
+        self.speed = 30
+        self.sync = False
+        self.filter = 'vehicle.*'
+        self.agent = "Behavior"
+        self.behavior = 'normal'
+        self.seed = None
+
+    def set_args(self, args):
+        self.host = args.host
+        self.port = args.port
+        self.width = args.width
+        self.height = args.height
+        self.res = args.res
+        self.debug = args.debug
+        self.map = args.map
+        self.reload_map = args.reload_map
+        self.xodr_path = args.xodr_path
+        self.osm_path = args.osm_path
+        self.weather = args.weather
+        self.tm_port = args.tm_port
+        self.filterv = args.filterv
+        self.generationv = args.generationv
+        self.start = args.start
+        self.end = args.end
+        self.number_of_vehicles = args.number_of_vehicles
+        self.hero = args.hero
+        self.car_lights_on = args.car_lights_on
+        self.speed = args.speed
+        self.sync = args.sync
+        self.filter = args.filter
+        self.agent = args.agent
+        self.behavior = args.behavior
+        self.seed = args.seed
+
+    def ready_up(self):
+        try:
+            client = carla.Client(self.host, self.port, worker_threads=1)
+            client.set_timeout(10.0)
+
+            self.width, self.height = [int(x) for x in self.res.split('x')]
+
+            log_level = logging.DEBUG if self.debug else logging.INFO
+            logging.basicConfig(
+                format='%(levelname)s: %(message)s', level=log_level)
+
+            logging.info('listening to server %s:%s', self.host, self.port)
+
+            if self.map is not None:
+                print('load map %s.' % self.map)
+                world = client.load_world(self.map)
+            elif self.reload_map:
+                print('reload map.')
+                world = client.reload_world()
+            elif self.xodr_path is not None:
+                if os.path.exists(self.xodr_path):
+                    with open(self.xodr_path, encoding='utf-8') as od_file:
+                        try:
+                            data = od_file.read()
+                        except OSError:
+                            print('file could not be readed.')
+                            return False
+                    print('load opendrive map %s.' %
+                          os.path.basename(self.xodr_path))
+                    vertex_distance = 2.0   # in meters
+                    max_road_length = 500.0  # in meters
+                    wall_height = 1.0       # in meters
+                    extra_width = 1.5       # in meters
+                    world = client.generate_opendrive_world(
+                        data, carla.OpendriveGenerationParameters(
+                            vertex_distance=vertex_distance,
+                            max_road_length=max_road_length,
+                            wall_height=wall_height,
+                            additional_width=extra_width,
+                            smooth_junctions=True,
+                            enable_mesh_visibility=True))
+                else:
+                    print('file not found.')
+                    return False
+            elif self.osm_path is not None:
+                if os.path.exists(self.osm_path):
+                    with open(self.osm_path, encoding='utf-8') as od_file:
+                        try:
+                            data = od_file.read()
+                        except OSError:
+                            print('file could not be readed.')
+                            return False
+                    print('Converting OSM data to opendrive')
+                    xodr_data = carla.Osm2Odr.convert(data)
+                    print('load opendrive map.')
+                    vertex_distance = 2.0   # in meters
+                    max_road_length = 500.0  # in meters
+                    wall_height = 0.0       # in meters
+                    extra_width = 0.6       # in meters
+                    world = client.generate_opendrive_world(
+                        xodr_data, carla.OpendriveGenerationParameters(
+                            vertex_distance=vertex_distance,
+                            max_road_length=max_road_length,
+                            wall_height=wall_height,
+                            additional_width=extra_width,
+                            smooth_junctions=True,
+                            enable_mesh_visibility=True))
+                else:
+                    print('file not found.')
+                    return False
+
+            else:
+                world = client.get_world()
+
+            if self.weather is not None:
+                if not hasattr(carla.WeatherParameters, self.weather):
+                    print('ERROR: weather preset %s not found.' % self.weather)
+                else:
+                    print('set weather preset %s.' % self.weather)
+                    world.set_weather(
+                        getattr(carla.WeatherParameters, self.weather))
+
+            traffic_manager = client.get_trafficmanager(self.tm_port)
+            traffic_manager.set_global_distance_to_leading_vehicle(2.5)
+
+            if self.xodr_path is not None or self.osm_path is not None:
+                traffic_manager.set_osm_mode(True)
+
+            blueprints = get_actor_blueprints(
+                world, self.filterv, self.generationv)
+            blueprints = sorted(blueprints, key=lambda bp: bp.id)
+
+            spawn_points = world.get_map().generate_waypoints(distance=10)
+            number_of_spawn_points = len(spawn_points)
+
+            start_loc = carla.Location(
+                float(self.start.split(',')[0]),  # x
+                float(self.start.split(',')[1]),  # y
+                float(self.start.split(',')[2])  # z
+            )
+
+            for i, sp in enumerate(spawn_points):
+                world.debug.draw_string(sp.transform.location, str(i), draw_shadow=False,
+                                        color=carla.Color(r=255, g=0, b=0), life_time=1200.0,
+                                        persistent_lines=True)
+                if abs(sp.transform.location.x - start_loc.x) < 5 and abs(sp.transform.location.y - start_loc.y) < 5:
+                    spawn_points.remove(sp)
+
+            if self.number_of_vehicles < number_of_spawn_points:
+                spawn_points = sample(spawn_points, self.number_of_vehicles)
+            elif self.number_of_vehicles > number_of_spawn_points:
+                msg = 'requested %d vehicles, but could only find %d spawn points'
+                logging.warning(msg, self.number_of_vehicles,
+                                number_of_spawn_points)
+                self.number_of_vehicles = number_of_spawn_points
+
+            # cannot import these directly.
+            SpawnActor = carla.command.SpawnActor
+            SetAutopilot = carla.command.SetAutopilot
+            SetVehicleLightState = carla.command.SetVehicleLightState
+            FutureActor = carla.command.FutureActor
+
+            # --------------
+            # Spawn vehicles
+            # --------------
+            vehicles_list = []
+            synchronous_master = False
+            batch = []
+            hero = self.hero
+            for i, sp in enumerate(spawn_points):
+                blueprint = random.choice(blueprints)
+                if blueprint.has_attribute('color'):
+                    color = random.choice(
+                        blueprint.get_attribute('color').recommended_values)
+                    blueprint.set_attribute('color', color)
+                if blueprint.has_attribute('driver_id'):
+                    driver_id = random.choice(
+                        blueprint.get_attribute('driver_id').recommended_values)
+                    blueprint.set_attribute('driver_id', driver_id)
+                if hero:
+                    blueprint.set_attribute('role_name', 'hero')
+                    hero = False
+                else:
+                    blueprint.set_attribute('role_name', 'autopilot')
+
+                # prepare the light state of the cars to spawn
+                light_state = vls.NONE
+                if self.car_lights_on:
+                    light_state = vls.Position | vls.LowBeam | vls.LowBeam
+
+                # spawn the cars and set their autopilot and light state all together
+                loc = carla.Location(
+                    sp.transform.location.x, sp.transform.location.y, sp.transform.location.z + 0.5)
+                batch.append(SpawnActor(blueprint, carla.Transform(loc, sp.transform.rotation))
+                             .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
+                             .then(SetVehicleLightState(FutureActor, light_state)))
+                print('Spawned vehicle number ' + str(i + 1))
+
+            for response in client.apply_batch_sync(batch, synchronous_master):
+                if response.error:
+                    logging.error(response.error)
+                else:
+                    vehicles_list.append(response.actor_id)
+
+            traffic_vehicles = world.get_actors()
+            for v in traffic_vehicles:
+                if not v.type_id == 'spectator':
+                    traffic_manager.auto_lane_change(v, True)
+
+            global speed_requested
+            speed_requested = self.speed
+            return True
+
+        except:
+            return False
+
+    def game_loop(self):
+        """
+        Main loop of the simulation. It handles updating all the HUD information,
+        ticking the agent and, if needed, the world.
+        """
+
+        pygame.init()
+        pygame.font.init()
+        world = None
+
+        try:
+            if self.seed:
+                random.seed(self.seed)
+
+            client = carla.Client(self.host, self.port)
+            client.set_timeout(4.0)
+
+            traffic_manager = client.get_trafficmanager()
+            sim_world = client.get_world()
+
+            if self.sync:
+                settings = sim_world.get_settings()
+                settings.synchronous_mode = True
+                settings.fixed_delta_seconds = 0.05
+                sim_world.apply_settings(settings)
+
+                traffic_manager.set_synchronous_mode(True)
+
+            display = pygame.display.set_mode(
+                (self.width, self.height),
+                pygame.HWSURFACE | pygame.DOUBLEBUF)
+
+            hud = HUD(self.width, self.height)
+            world = World(client.get_world(), hud, self)
+            if self.agent == "Basic":
+                agent = BasicAgent(world.player)
+            else:
+                agent = BehaviorAgent(
+                    world.player, behavior=self.behavior, speed=self.speed)
+
+            # Set the agent destination
+            loc = carla.Location(
+                float(self.end.split(',')[0]),  # x
+                float(self.end.split(',')[1]),  # y
+                float(self.end.split(',')[2])  # z
+            )
+            agent.set_destination(loc)
+
+            clock = pygame.time.Clock()
+
+            while True:
+                clock.tick()
+                if self.sync:
+                    world.world.tick()
+                else:
+                    world.world.wait_for_tick()
+
+                world.tick(clock)
+                world.render(display)
+                pygame.display.flip()
+
+                if agent.done():
+                    break
+
+                control = agent.run_step()
+                control.manual_gear_shift = False
+                world.player.apply_control(control)
+
+        finally:
+            if world is not None:
+                settings = world.world.get_settings()
+                settings.synchronous_mode = False
+                settings.fixed_delta_seconds = None
+                world.world.apply_settings(settings)
+                traffic_manager.set_synchronous_mode(True)
+                world.destroy()
+
+            pygame.quit()
+
+    def calculate_driving_score():
+        total = 0
+        for i in incidents:
+            fit = i.get_fitness()
+            total += fit
+        return total
 
 
 # ==============================================================================
@@ -724,93 +1032,6 @@ class CameraManager(object):
 
 
 # ==============================================================================
-# -- Game Loop ---------------------------------------------------------
-# ==============================================================================
-
-
-def game_loop(args):
-    """
-    Main loop of the simulation. It handles updating all the HUD information,
-    ticking the agent and, if needed, the world.
-    """
-
-    pygame.init()
-    pygame.font.init()
-    world = None
-
-    try:
-        if args.seed:
-            random.seed(args.seed)
-
-        client = carla.Client(args.host, args.port)
-        client.set_timeout(4.0)
-
-        traffic_manager = client.get_trafficmanager()
-        sim_world = client.get_world()
-
-        if args.sync:
-            settings = sim_world.get_settings()
-            settings.synchronous_mode = True
-            settings.fixed_delta_seconds = 0.05
-            sim_world.apply_settings(settings)
-
-            traffic_manager.set_synchronous_mode(True)
-
-        display = pygame.display.set_mode(
-            (args.width, args.height),
-            pygame.HWSURFACE | pygame.DOUBLEBUF)
-
-        hud = HUD(args.width, args.height)
-        world = World(client.get_world(), hud, args)
-        if args.agent == "Basic":
-            agent = BasicAgent(world.player)
-        else:
-            agent = BehaviorAgent(
-                world.player, behavior=args.behavior, speed=args.speed)
-
-        # Set the agent destination
-        loc = carla.Location(
-            float(args.end.split(',')[0]),  # x
-            float(args.end.split(',')[1]),  # y
-            float(args.end.split(',')[2])  # z
-        )
-        agent.set_destination(loc)
-
-        clock = pygame.time.Clock()
-
-        while True:
-            clock.tick()
-            if args.sync:
-                world.world.tick()
-            else:
-                world.world.wait_for_tick()
-
-            world.tick(clock)
-            world.render(display)
-            pygame.display.flip()
-
-            if agent.done():
-                break
-
-            control = agent.run_step()
-            control.manual_gear_shift = False
-            world.player.apply_control(control)
-
-    finally:
-
-        if world is not None:
-            settings = world.world.get_settings()
-            settings.synchronous_mode = False
-            settings.fixed_delta_seconds = None
-            world.world.apply_settings(settings)
-            traffic_manager.set_synchronous_mode(True)
-
-            world.destroy()
-
-        pygame.quit()
-
-
-# ==============================================================================
 # -- main() --------------------------------------------------------------
 # ==============================================================================
 
@@ -938,189 +1159,11 @@ def main():
 
     args = argparser.parse_args()
 
-    client = carla.Client(args.host, args.port, worker_threads=1)
-    client.set_timeout(10.0)
-
-    args.width, args.height = [int(x) for x in args.res.split('x')]
-
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
-
-    logging.info('listening to server %s:%s', args.host, args.port)
-
-    if args.map is not None:
-        print('load map %s.' % args.map)
-        world = client.load_world(args.map)
-    elif args.reload_map:
-        print('reload map.')
-        world = client.reload_world()
-    elif args.xodr_path is not None:
-        if os.path.exists(args.xodr_path):
-            with open(args.xodr_path, encoding='utf-8') as od_file:
-                try:
-                    data = od_file.read()
-                except OSError:
-                    print('file could not be readed.')
-                    sys.exit(1)
-            print('load opendrive map %s.' % os.path.basename(args.xodr_path))
-            vertex_distance = 2.0   # in meters
-            max_road_length = 500.0  # in meters
-            wall_height = 1.0       # in meters
-            extra_width = 1.5       # in meters
-            world = client.generate_opendrive_world(
-                data, carla.OpendriveGenerationParameters(
-                    vertex_distance=vertex_distance,
-                    max_road_length=max_road_length,
-                    wall_height=wall_height,
-                    additional_width=extra_width,
-                    smooth_junctions=True,
-                    enable_mesh_visibility=True))
-        else:
-            print('file not found.')
-            sys.exit(1)
-    elif args.osm_path is not None:
-        if os.path.exists(args.osm_path):
-            with open(args.osm_path, encoding='utf-8') as od_file:
-                try:
-                    data = od_file.read()
-                except OSError:
-                    print('file could not be readed.')
-                    sys.exit(1)
-            print('Converting OSM data to opendrive')
-            xodr_data = carla.Osm2Odr.convert(data)
-            print('load opendrive map.')
-            vertex_distance = 2.0   # in meters
-            max_road_length = 500.0  # in meters
-            wall_height = 0.0       # in meters
-            extra_width = 0.6       # in meters
-            world = client.generate_opendrive_world(
-                xodr_data, carla.OpendriveGenerationParameters(
-                    vertex_distance=vertex_distance,
-                    max_road_length=max_road_length,
-                    wall_height=wall_height,
-                    additional_width=extra_width,
-                    smooth_junctions=True,
-                    enable_mesh_visibility=True))
-        else:
-            print('file not found.')
-            sys.exit(1)
-
-    else:
-        world = client.get_world()
-
-    if args.list:
-        list_options(client)
-        sys.exit()
-    if args.weather is not None:
-        if not hasattr(carla.WeatherParameters, args.weather):
-            print('ERROR: weather preset %s not found.' % args.weather)
-        else:
-            print('set weather preset %s.' % args.weather)
-            world.set_weather(getattr(carla.WeatherParameters, args.weather))
-
-    traffic_manager = client.get_trafficmanager(args.tm_port)
-    traffic_manager.set_global_distance_to_leading_vehicle(2.5)
-
-    if args.xodr_path is not None or args.osm_path is not None:
-        traffic_manager.set_osm_mode(True)
-
-    blueprints = get_actor_blueprints(world, args.filterv, args.generationv)
-    blueprints = sorted(blueprints, key=lambda bp: bp.id)
-
-    spawn_points = world.get_map().generate_waypoints(distance=10)
-    number_of_spawn_points = len(spawn_points)
-
-    start_loc = carla.Location(
-        float(args.start.split(',')[0]),  # x
-        float(args.start.split(',')[1]),  # y
-        float(args.start.split(',')[2])  # z
-    )
-
-    for i, sp in enumerate(spawn_points):
-        world.debug.draw_string(sp.transform.location, str(i), draw_shadow=False,
-                                color=carla.Color(r=255, g=0, b=0), life_time=1200.0,
-                                persistent_lines=True)
-        if abs(sp.transform.location.x - start_loc.x) < 5 and abs(sp.transform.location.y - start_loc.y) < 5:
-            spawn_points.remove(sp)
-
-    if args.number_of_vehicles < number_of_spawn_points:
-        spawn_points = sample(spawn_points, args.number_of_vehicles)
-    elif args.number_of_vehicles > number_of_spawn_points:
-        msg = 'requested %d vehicles, but could only find %d spawn points'
-        logging.warning(msg, args.number_of_vehicles, number_of_spawn_points)
-        args.number_of_vehicles = number_of_spawn_points
-
-    # cannot import these directly.
-    SpawnActor = carla.command.SpawnActor
-    SetAutopilot = carla.command.SetAutopilot
-    SetVehicleLightState = carla.command.SetVehicleLightState
-    FutureActor = carla.command.FutureActor
-
-    # --------------
-    # Spawn vehicles
-    # --------------
-    vehicles_list = []
-    synchronous_master = False
-    batch = []
-    hero = args.hero
-    for i, sp in enumerate(spawn_points):
-        blueprint = random.choice(blueprints)
-        if blueprint.has_attribute('color'):
-            color = random.choice(
-                blueprint.get_attribute('color').recommended_values)
-            blueprint.set_attribute('color', color)
-        if blueprint.has_attribute('driver_id'):
-            driver_id = random.choice(
-                blueprint.get_attribute('driver_id').recommended_values)
-            blueprint.set_attribute('driver_id', driver_id)
-        if hero:
-            blueprint.set_attribute('role_name', 'hero')
-            hero = False
-        else:
-            blueprint.set_attribute('role_name', 'autopilot')
-
-        # prepare the light state of the cars to spawn
-        light_state = vls.NONE
-        if args.car_lights_on:
-            light_state = vls.Position | vls.LowBeam | vls.LowBeam
-
-        # spawn the cars and set their autopilot and light state all together
-        loc = carla.Location(
-            sp.transform.location.x, sp.transform.location.y, sp.transform.location.z + 0.5)
-        batch.append(SpawnActor(blueprint, carla.Transform(loc, sp.transform.rotation))
-                     .then(SetAutopilot(FutureActor, True, traffic_manager.get_port()))
-                     .then(SetVehicleLightState(FutureActor, light_state)))
-        print('Spawned vehicle number ' + str(i + 1))
-
-    for response in client.apply_batch_sync(batch, synchronous_master):
-        if response.error:
-            logging.error(response.error)
-        else:
-            vehicles_list.append(response.actor_id)
-
-    traffic_vehicles = world.get_actors()
-    for v in traffic_vehicles:
-        if not v.type_id == 'spectator':
-            traffic_manager.auto_lane_change(v, True)
-
-    global speed_requested
-    speed_requested = args.speed
-
-    try:
-        game_loop(args)
-        score = calculate_driving_score()
-        sys.exit(score)
-    except KeyboardInterrupt:
-        score = calculate_driving_score()
-        sys.exit(score)
-
-
-def signal_handler(sig, frame):
-    score = calculate_driving_score()
-    print(f"Received termination, score is {score}")
-    sys.exit(score)
+    main_obj = Main()
+    main_obj.set_args(args)
+    main_obj.ready_up()
+    main_obj.game_loop()
 
 
 if __name__ == '__main__':
-    signal.signal(signal.SIGBREAK, signal_handler)
     main()
