@@ -447,14 +447,14 @@ class Incident(object):
         if self.type == 'invasion':
             fit = 1
             fit -= (self.s_a + 1) / s_r
-            with open(os.path.join(os.pardir, "incidents.csv"), "a", encoding="utf8") as file:
+            with open("incidents.csv", "a", encoding="utf8") as file:
                 file.write('%s,%s,%s,%s,%s\n' % (str(self.time), str(
                     self.s_a), str(s_r), str(self.type), str(fit)))
             return fit
         elif self.type == 'collision':
             fit = 2
             fit -= (2 * self.s_a + 2) / s_r
-            with open(os.path.join(os.pardir, "incidents.csv"), "a", encoding="utf8") as file:
+            with open("incidents.csv", "a", encoding="utf8") as file:
                 file.write('%s,%s,%s,%s,%s\n' % (str(self.time), str(
                     self.s_a), str(s_r), str(self.type), str(fit)))
             return fit
