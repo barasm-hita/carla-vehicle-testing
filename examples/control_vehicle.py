@@ -48,7 +48,6 @@ from agents.navigation.basic_agent import BasicAgent  # pylint: disable=import-e
 # -- Global functions & variables ----------------------------------------------
 # ==============================================================================
 
-speed_requested = 0
 incidents = []
 
 
@@ -167,6 +166,9 @@ class Main(object):
 
     def ready_up(self):
         try:
+            global incidents
+            incidents = []
+
             client = carla.Client(self.host, self.port, worker_threads=1)
             client.set_timeout(10.0)
 
@@ -334,8 +336,6 @@ class Main(object):
                 if not v.type_id == 'spectator':
                     traffic_manager.auto_lane_change(v, True)
 
-            global speed_requested
-            speed_requested = self.speed
             return True
 
         except:
@@ -420,10 +420,10 @@ class Main(object):
 
             pygame.quit()
 
-    def calculate_driving_score():
+    def calculate_driving_score(self):
         total = 0
         for i in incidents:
-            fit = i.get_fitness()
+            fit = i.get_fitness(self.speed)
             total += fit
         return total
 
@@ -439,20 +439,20 @@ class Incident(object):
         self.s_a = s_a
         self.time = time
 
-    def get_fitness(self):
+    def get_fitness(self, s_r):
         if self.type == 'invasion':
             fit = 1
-            fit -= (self.s_a + 1) / speed_requested
+            fit -= (self.s_a + 1) / s_r
             with open(os.path.join(os.pardir, "incidents.csv"), "a", encoding="utf8") as file:
                 file.write('%s,%s,%s,%s,%s\n' % (str(self.time), str(
-                    self.s_a), str(speed_requested), str(self.type), str(fit)))
+                    self.s_a), str(s_r), str(self.type), str(fit)))
             return fit
         elif self.type == 'collision':
             fit = 2
-            fit -= (2 * self.s_a + 2) / speed_requested
+            fit -= (2 * self.s_a + 2) / s_r
             with open(os.path.join(os.pardir, "incidents.csv"), "a", encoding="utf8") as file:
                 file.write('%s,%s,%s,%s,%s\n' % (str(self.time), str(
-                    self.s_a), str(speed_requested), str(self.type), str(fit)))
+                    self.s_a), str(s_r), str(self.type), str(fit)))
             return fit
         else:
             return 0
