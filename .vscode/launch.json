@@ -21,7 +21,7 @@
                 "--xodr-path",
                 "maps/suzuka_circuit.xodr",
                 "--number-of-vehicles",
-                "30",
+                "50",
                 "--weather",
                 "ClearNight",
                 "--car-lights-on",

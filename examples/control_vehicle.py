@@ -140,8 +140,7 @@ class Main(object):
     def set_args(self, args):
         self.host = args.host
         self.port = args.port
-        self.width = args.width
-        self.height = args.height
+        self.width, self.height = [int(x) for x in self.res.split('x')]
         self.res = args.res
         self.debug = args.debug
         self.map = args.map
@@ -171,8 +170,6 @@ class Main(object):
 
             client = carla.Client(self.host, self.port, worker_threads=1)
             client.set_timeout(10.0)
-
-            self.width, self.height = [int(x) for x in self.res.split('x')]
 
             log_level = logging.DEBUG if self.debug else logging.INFO
             logging.basicConfig(
@@ -390,6 +387,7 @@ class Main(object):
             agent.set_destination(loc)
 
             clock = pygame.time.Clock()
+            zero_counter = 0
 
             while True:
                 clock.tick()
@@ -402,8 +400,14 @@ class Main(object):
                 world.render(display)
                 pygame.display.flip()
 
-                if agent.done():
+                if agent.done() or zero_counter > 200:
                     break
+                cur_speed = round(calculate_speed_from_velocity(
+                    world.player.get_velocity()), 2)
+                if cur_speed == 0:
+                    zero_counter += 1
+                else:
+                    zero_counter = 0
 
                 control = agent.run_step()
                 control.manual_gear_shift = False

@@ -96,7 +96,7 @@ def fitness_func(solution, solution_idx):
     main_obj.weather = choose_weather(solution[3])
     main_obj.ready_up()
     main_obj.game_loop()
-    main_obj.calculate_driving_score()
+    fitness = main_obj.calculate_driving_score()
     print("\033[1;31mfinished simulation with status code " +
           str(fitness) + "\033[0;0m")
     with open(f"scenarios_{label}.csv", "a", encoding="utf8") as file:
